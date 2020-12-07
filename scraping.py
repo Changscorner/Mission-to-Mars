@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup as soup
 import pandas as pd
 import datetime as dt
 
-# Set the executable path and initialize the chrome browser in splinter
+
 def scrape_all():
     # Initiate headless driver for deployment
     browser = Browser("chrome", executable_path="chromedriver", headless=True)
@@ -17,7 +17,8 @@ def scrape_all():
         "news_paragraph": news_paragraph,
         "featured_image": featured_image(browser),
         "facts": mars_facts(),
-        "last_modified": dt.datetime.now()
+        "last_modified": dt.datetime.now(),
+		"hemisphere_image_info": hemisphere_image(browser)
     }
 
     # Stop webdriver and return data
@@ -102,7 +103,59 @@ def mars_facts():
 
     # Convert dataframe into HTML format, add bootstrap
     return df.to_html()
+	
+def hemisphere_image(browser):
 
+	# Visit the URL
+	url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+	browser.visit(url)
+	
+	# Create a list to hold the images and the titles
+	hemisphere_image_urls = []
+	
+	# Retrieve the image and title for each hemisphere with soup parser
+	html = browser.html
+	hemi_soup = soup(html, 'html.parser')
+	
+	# Add try/except for error handling
+	try:
+		# Find the count of pictures
+		pic_count = len(hemi_soup.select("div.item"))
+		
+		# Loop over the link of each photo
+		for i in range(pic_count):
+			# Create Dic to hold results
+			count = {}
+			# Get link to the photo and go in
+			linked_image = hemi_soup.select("div.description a")[i].get('href')
+			browser.visit(f'https://astrogeology.usgs.gov{linked_image}')
+			# Parse new html with soup
+			html = browser.html
+			image_soup = soup(html, 'html.parser')
+		
+			# Get full link for image
+			img_url = image_soup.select_one("div.downloads ul li a").get('href')
+    
+			# Get link for the image title
+			img_title = image_soup.select_one("h2.title").get_text()
+    
+			# Add extract to count dict
+			count = {
+				'img_url': img_url,
+				'title': img_title
+				}
+    
+			# Append count to the hemisphere image urls list
+			hemisphere_image_urls.append(count)
+    
+			# Return to main page
+			browser.back()
+			
+	except BaseException:
+		return None
+	# Return list that hold dic of image url and title
+	return hemisphere_image_urls
+	
 if __name__ == "__main__":
 
     # If running as script, print scraped data
